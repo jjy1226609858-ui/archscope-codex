@@ -186,6 +186,7 @@ def test_published_release_smoke_downloads_public_assets_without_credentials() -
     assert "marketplace.json" in verify["run"]
     assert "audit_release_privacy.py" in run["run"]
     assert run["run"].count("python tools/audit_release_privacy.py") == 1
+    assert "python -m pip install -e $source" in run["run"]
     assert "smoke_portable_run.py" in run["run"]
     assert "smoke_portable_task.py" in run["run"]
     assert steps.index(resolve) < steps.index(download) < steps.index(verify) < steps.index(run)

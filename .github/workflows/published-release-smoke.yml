@@ -94,6 +94,8 @@ jobs:
           # compiled libraries and is not a valid check of the build machine's data.
           python -m pip install -r (Join-Path $source 'requirements.txt')
           if ($LASTEXITCODE -ne 0) { throw 'Smoke dependencies failed to install' }
+          python -m pip install -e $source
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded source failed to install' }
           python (Join-Path $source 'tools\smoke_portable_run.py') $plugin (Join-Path $env:RUNNER_TEMP 'archscope-public-run-data')
           if ($LASTEXITCODE -ne 0) { throw 'Downloaded package normal run failed' }
           python (Join-Path $source 'tools\smoke_portable_task.py') $plugin (Join-Path $env:RUNNER_TEMP 'archscope-public-task-data')
