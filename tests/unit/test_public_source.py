@@ -100,15 +100,18 @@ def test_release_gates_reject_windows_directory_junction(tmp_path: Path) -> None
         scan_tree(release, [])
 
 
-def test_public_windows_ci_is_unprivileged_and_allowlisted() -> None:
+def test_public_windows_ci_gates_release_on_verified_package() -> None:
     assert ".github/workflows/windows-ci.yml" in FILES
+    assert "RELEASE_NOTES.md" in FILES
     workflow = yaml.load((ROOT / ".github/workflows/windows-ci.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
     assert set(workflow["on"]) == {"push", "pull_request", "workflow_dispatch"}
     assert workflow["permissions"] == {"contents": "read"}
-    steps = workflow["jobs"]["test-and-package"]["steps"]
+    build_job = workflow["jobs"]["test-and-package"]
+    assert "permissions" not in build_job
+    steps = build_job["steps"]
     checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
     assert checkout["with"]["persist-credentials"] == "false"
-    upload = next(step for step in steps if step.get("uses", "").startswith("actions/upload-artifact@"))
+    upload = next(step for step in steps if step.get("name") == "Upload verified Windows package")
     assert upload["if"] == "github.ref == 'refs/heads/main' && github.event_name != 'pull_request'"
     assert upload["with"]["path"] == "${{ runner.temp }}/ArchScope-windows-candidate/"
     assert upload["with"]["include-hidden-files"] == "true"
@@ -116,3 +119,24 @@ def test_public_windows_ci_is_unprivileged_and_allowlisted() -> None:
     repair = next(step for step in steps if step.get("name", "").startswith("Verify isolated repair regression"))
     assert "tools/smoke_portable_task.py" in repair["run"]
     assert steps.index(repair) < steps.index(upload)
+    prepare = next(step for step in steps if step.get("name") == "Prepare audited release files")
+    release_upload = next(step for step in steps if step.get("name") == "Upload audited release files")
+    assert "github.ref == 'refs/heads/main'" in prepare["if"]
+    assert "[release]" in prepare["if"]
+    assert steps.index(repair) < steps.index(prepare) < steps.index(release_upload)
+    assert ".agents/plugins/marketplace.json" in prepare["run"]
+    assert "SHA256SUMS.txt" in prepare["run"]
+    assert release_upload["with"]["if-no-files-found"] == "error"
+
+    publish = workflow["jobs"]["publish-release"]
+    assert publish["needs"] == "test-and-package"
+    assert publish["permissions"] == {"contents": "write"}
+    assert "[release]" in publish["if"]
+    publish_steps = publish["steps"]
+    download = next(step for step in publish_steps if step.get("uses", "").startswith("actions/download-artifact@"))
+    assert "release-files" in download["with"]["name"]
+    assert any("Get-FileHash" in step.get("run", "") for step in publish_steps)
+    create = next(step for step in publish_steps if step.get("name") == "Publish Windows early release")
+    assert "gh release create" in create["run"]
+    assert "--prerelease" in create["run"]
+    assert "git ls-remote --tags" in create["run"]

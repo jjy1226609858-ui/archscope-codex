@@ -12,6 +12,8 @@ jobs:
   test-and-package:
     runs-on: windows-latest
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.package_version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -74,6 +76,43 @@ jobs:
           $manifest = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'ArchScope-windows-candidate\plugins\archscope\plugin.json') -Raw -Encoding UTF8 | ConvertFrom-Json
           "version=$($manifest.version)" >> $env:GITHUB_OUTPUT
 
+      - name: Prepare audited release files
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
+        shell: pwsh
+        run: |
+          $version = '${{ steps.package_version.outputs.version }}'
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected package version: $version" }
+          $releaseRoot = Join-Path $env:RUNNER_TEMP 'ArchScope-release-files'
+          [IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
+          $windowsName = "ArchScope-v$version-windows-x64.zip"
+          $sourceName = "ArchScope-v$version-source.zip"
+          $windowsZip = Join-Path $releaseRoot $windowsName
+          $package = Join-Path $env:RUNNER_TEMP 'ArchScope-windows-candidate'
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [IO.Compression.ZipFile]::CreateFromDirectory($package, $windowsZip, [IO.Compression.CompressionLevel]::Optimal, $false)
+          $archive = [IO.Compression.ZipFile]::OpenRead($windowsZip)
+          try {
+            $names = @($archive.Entries | ForEach-Object FullName)
+            if ($names -notcontains '.agents/plugins/marketplace.json' -or $names -notcontains 'plugins/archscope/runtime/archscope.exe') {
+              throw 'Release ZIP is missing the marketplace or runtime executable'
+            }
+          } finally { $archive.Dispose() }
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'ArchScope-source.zip') -Destination (Join-Path $releaseRoot $sourceName)
+          $hashes = @($windowsName, $sourceName) | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath (Join-Path $releaseRoot $_) -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $_"
+          }
+          [IO.File]::WriteAllLines((Join-Path $releaseRoot 'SHA256SUMS.txt'), $hashes, [Text.UTF8Encoding]::new($false))
+
+      - name: Upload audited release files
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
+        uses: actions/upload-artifact@v7
+        with:
+          name: ArchScope-v${{ steps.package_version.outputs.version }}-release-files
+          path: ${{ runner.temp }}/ArchScope-release-files/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload verified Windows package
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
@@ -83,3 +122,45 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 30
+
+  publish-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
+    needs: test-and-package
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: ArchScope-v${{ needs.test-and-package.outputs.version }}-release-files
+          path: ${{ runner.temp }}/ArchScope-release-files
+      - name: Verify downloaded release files
+        shell: pwsh
+        run: |
+          $releaseRoot = Join-Path $env:RUNNER_TEMP 'ArchScope-release-files'
+          $lines = Get-Content -LiteralPath (Join-Path $releaseRoot 'SHA256SUMS.txt') -Encoding UTF8
+          if ($lines.Count -ne 2) { throw 'Expected exactly two release asset hashes' }
+          foreach ($line in $lines) {
+            if ($line -notmatch '^([0-9a-f]{64})  (ArchScope-v[0-9]+\.[0-9]+\.[0-9]+-(?:windows-x64|source)\.zip)$') {
+              throw "Invalid release hash entry: $line"
+            }
+            $actual = (Get-FileHash -LiteralPath (Join-Path $releaseRoot $Matches[2]) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $Matches[1]) { throw "Release asset hash mismatch: $($Matches[2])" }
+          }
+      - name: Publish Windows early release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ needs.test-and-package.outputs.version }}'
+          $tag = "v$version"
+          $releaseRoot = Join-Path $env:RUNNER_TEMP 'ArchScope-release-files'
+          $existingTag = git ls-remote --tags origin "refs/tags/$tag"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not check existing release tag' }
+          if ($existingTag) { throw "Release tag already exists: $tag" }
+          gh release create $tag (Join-Path $releaseRoot "ArchScope-$tag-windows-x64.zip") (Join-Path $releaseRoot "ArchScope-$tag-source.zip") (Join-Path $releaseRoot 'SHA256SUMS.txt') --target '${{ github.sha }}' --title "ArchScope $tag (Windows early release)" --notes-file RELEASE_NOTES.md --prerelease
+          if ($LASTEXITCODE -ne 0) { throw "Release creation failed: $LASTEXITCODE" }

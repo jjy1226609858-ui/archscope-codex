@@ -25,6 +25,7 @@ FILES = (
     "LICENSE",
     "README.md",
     "README.zh-CN.md",
+    "RELEASE_NOTES.md",
     "pyproject.toml",
     "requirements.txt",
     "requirements-build.txt",
