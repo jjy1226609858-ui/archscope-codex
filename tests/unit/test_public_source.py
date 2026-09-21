@@ -177,7 +177,7 @@ def test_published_release_smoke_downloads_public_assets_without_credentials() -
     resolve = next(step for step in steps if step.get("name") == "Resolve newest published release")
     download = next(step for step in steps if step.get("name") == "Download public assets without credentials")
     verify = next(step for step in steps if step.get("name") == "Verify downloaded hashes and package layout")
-    run = next(step for step in steps if step.get("name") == "Audit and run downloaded plugin")
+    run = next(step for step in steps if step.get("name") == "Audit downloaded source and run downloaded plugin")
     assert "GH_TOKEN" in resolve["env"]
     assert "GH_TOKEN" not in download.get("env", {})
     assert "curl.exe --fail --location" in download["run"]
@@ -185,6 +185,7 @@ def test_published_release_smoke_downloads_public_assets_without_credentials() -
     assert "SHA256SUMS.txt" in verify["run"]
     assert "marketplace.json" in verify["run"]
     assert "audit_release_privacy.py" in run["run"]
+    assert run["run"].count("python tools/audit_release_privacy.py") == 1
     assert "smoke_portable_run.py" in run["run"]
     assert "smoke_portable_task.py" in run["run"]
     assert steps.index(resolve) < steps.index(download) < steps.index(verify) < steps.index(run)
