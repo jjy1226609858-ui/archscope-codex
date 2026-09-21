@@ -108,3 +108,8 @@ def test_public_windows_ci_is_unprivileged_and_allowlisted() -> None:
     steps = workflow["jobs"]["test-and-package"]["steps"]
     checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
     assert checkout["with"]["persist-credentials"] == "false"
+    upload = next(step for step in steps if step.get("uses", "").startswith("actions/upload-artifact@"))
+    assert upload["if"] == "github.ref == 'refs/heads/main' && github.event_name != 'pull_request'"
+    assert upload["with"]["path"] == "${{ runner.temp }}/ArchScope-windows-candidate/"
+    assert upload["with"]["include-hidden-files"] == "true"
+    assert upload["with"]["if-no-files-found"] == "error"

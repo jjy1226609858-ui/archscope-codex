@@ -10,6 +10,8 @@ ArchScope 是面向本地软件项目的架构工作台和 Codex 插件。用受
 
 运行 Python 场景前，插件会检查目标解释器是否真实可执行且为 Python 3.11+。工作台会在未找到候选解释器时提前显示配置命令；`configure-python` 仅更新指定项目的解释器，不清除其他登记信息。0.11.7 的浏览器写请求要求同源校验和进程内会话令牌，会话接口也拒绝跨站请求，且只允许本机地址；这不构成对同一 Windows 用户下恶意程序的强隔离。同版本完整 Codex 宿主修复闭环、Hooks 实际投递和外部受保护 CI 尚未验证。Linux 打包后置。
 
+正式 GitHub Release 附件发布前，已登录 GitHub 的用户可到 **Actions → Windows CI → 最新成功的 `main` 运行 → Artifacts** 下载临时 Windows 包。CI 仅在测试、隐私扫描、打包验证和示例运行通过后上传；该产物 30 天后过期，不是永久 Release，也不是受保护的外部签名验收。
+
 ## 已知限制
 
 - 预编译包只支持 Windows x64。打开本机工作台不需另装 Python；运行 Python 目标项目仍需该项目可用的 Python 3.11+ 环境，见 [安装说明](INSTALL.zh-CN.md)。

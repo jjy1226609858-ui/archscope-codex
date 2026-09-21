@@ -10,6 +10,8 @@ This repository is a Windows-first **early release**, not a feature-complete pro
 
 The 0.11.7 Windows package has not yet completed the full real-host repair loop, trusted Hook delivery, or external protected CI. Hooks are optional and untrusted by default. Linux packaging is deferred until the Windows experience is stable. The Windows package includes third-party license notices; they are an inventory of redistributed components, not a substitute for release review.
 
+Until a permanent GitHub Release asset is available, a signed-in GitHub user can download the temporary Windows package from **Actions → Windows CI → latest successful `main` run → Artifacts**. CI uploads only after its tests, privacy audit, package validation, and demo run pass. Actions artifacts expire after 30 days; they are not a permanent release or a protected attestation.
+
 ## Known limits
 
 - The prebuilt package is Windows x64 only. The local workbench opens without a separate Python install, but running a Python target requires that project's working Python 3.11+ environment; see the [installation guide](INSTALL.md).

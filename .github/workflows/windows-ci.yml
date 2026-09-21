@@ -59,3 +59,21 @@ jobs:
           .\tools\build_windows_marketplace.ps1 -OutputRoot $package -BuildRoot $build
           .\.venv\Scripts\python.exe tools/audit_release_privacy.py $package
           .\.venv\Scripts\python.exe tools/smoke_portable_run.py (Join-Path $package 'plugins\archscope') (Join-Path $env:RUNNER_TEMP 'ArchScope-smoke-data')
+
+      - name: Read verified package version
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        id: package_version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'ArchScope-windows-candidate\plugins\archscope\plugin.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          "version=$($manifest.version)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload verified Windows package
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ArchScope-v${{ steps.package_version.outputs.version }}-windows-x64
+          path: ${{ runner.temp }}/ArchScope-windows-candidate/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
