@@ -1,0 +1,8 @@
+{
+  "width": 8,
+  "height": 8,
+  "blocked": [],
+  "start": [0, 0],
+  "goal": [7, 7],
+  "pause_seconds": 5
+}

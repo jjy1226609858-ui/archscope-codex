@@ -1,0 +1,325 @@
+# ArchScope .arch v0.1 example draft.
+# Example source exists, but this architecture has not been approved by a person.
+# The schema, semantic checks, and real runtime observation are available.
+
+archspec: '0.1'
+project:
+  id: mini_planner
+  name: Grid Path Planning Demo
+  purpose: Demonstrate architecture-first development, real interface observation, failure localization, and scoped repair; not a production vehicle planner.
+  source_roots:
+  - src
+  languages:
+  - python
+  open_questions:
+  - The BFS search is an example for boundary events, not a production path planner.
+  - Profiles are development allowlists; a passing demo is not production approval.
+domains:
+- id: scene
+  name: Grid scene
+  description: Occupancy grid and coordinate conventions; the validator checks dimensions and indices.
+  unit: grid_cell
+  binding: demo.contracts:Scene
+- id: request
+  name: Planning request
+  description: Start and goal positions with allowed planning settings.
+  binding: demo.contracts:PlanningRequest
+- id: path_result
+  name: Path result
+  description: A successful route or explicit no-path result; no path is a domain outcome, not a program exception.
+  binding: demo.contracts:PathResult
+- id: probe
+  name: Collision query
+  description: Candidate position and scene context.
+  binding: demo.contracts:CollisionQuery
+- id: verdict
+  name: Collision verdict
+  description: Whether a candidate position is traversable within the defined bounds.
+  binding: demo.contracts:CollisionDecision
+- id: report
+  name: Report artifact
+  description: Result summary and optional file reference.
+  binding: demo.contracts:ReportArtifact
+modules:
+- id: app
+  name: Application entry
+  purpose: Orchestrate calls in ordinary Python and record important transfers explicitly, without a graph scheduler.
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/demo/__init__.py
+    - src/demo/main.py
+    public_imports:
+    - demo.main
+    entries:
+    - id: main
+      symbol: demo.main:main
+- id: contracts
+  name: Domain contracts
+  purpose: Define shared domain objects without importing business implementations.
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/demo/contracts.py
+    public_imports:
+    - demo.contracts
+    entries: []
+- id: data
+  name: Data input
+  purpose: Read a scenario and validate required inputs.
+  kind: leaf
+  ports:
+  - id: scene
+    direction: out
+    domain: scene
+  - id: request
+    direction: out
+    domain: request
+  binding:
+    files:
+    - src/demo/data/**/*.py
+    public_imports:
+    - demo.data.api
+    entries:
+    - id: load
+      symbol: demo.data.api:load_scene
+- id: planning
+  name: Planning subsystem
+  purpose: Encapsulate search and collision checks; expanding the graph does not change semantics.
+  kind: composite
+  ports:
+  - id: scene
+    direction: in
+    domain: scene
+    delegate:
+      module: search
+      port: scene
+  - id: request
+    direction: in
+    domain: request
+    delegate:
+      module: search
+      port: request
+  - id: path
+    direction: out
+    domain: path_result
+    delegate:
+      module: search
+      port: path
+- id: search
+  name: Path search
+  purpose: Search for a route in the given scene, using the public collision API for verdicts.
+  kind: leaf
+  ports:
+  - id: scene
+    direction: in
+    domain: scene
+  - id: request
+    direction: in
+    domain: request
+  - id: path
+    direction: out
+    domain: path_result
+  - id: probe
+    direction: out
+    domain: probe
+  - id: verdict
+    direction: in
+    domain: verdict
+  binding:
+    files:
+    - src/demo/search/**/*.py
+    public_imports:
+    - demo.search.api
+    entries:
+    - id: plan
+      symbol: demo.search.api:plan
+  parent: planning
+- id: collision
+  name: Collision check
+  purpose: Decide whether a candidate position is traversable; internal geometry helpers stay private.
+  kind: leaf
+  ports:
+  - id: query
+    direction: in
+    domain: probe
+  - id: decision
+    direction: out
+    domain: verdict
+  binding:
+    files:
+    - src/demo/collision/**/*.py
+    public_imports:
+    - demo.collision.api
+    entries:
+    - id: check
+      symbol: demo.collision.api:check
+  parent: planning
+- id: reporter
+  name: Report output
+  purpose: Summarize planning results without depending directly on collision internals.
+  kind: leaf
+  ports:
+  - id: path
+    direction: in
+    domain: path_result
+  - id: report
+    direction: out
+    domain: report
+  binding:
+    files:
+    - src/demo/reporter/**/*.py
+    public_imports:
+    - demo.reporter.api
+    entries:
+    - id: render
+      symbol: demo.reporter.api:render
+flows:
+- id: F_SCENE
+  from:
+    module: data
+    port: scene
+  to:
+    module: planning
+    port: scene
+  transport: in_process
+  description: The entry point passes the scene to the planning public port.
+- id: F_REQUEST
+  from:
+    module: data
+    port: request
+  to:
+    module: planning
+    port: request
+  transport: in_process
+  description: The entry point passes the planning request.
+- id: F_PATH
+  from:
+    module: planning
+    port: path
+  to:
+    module: reporter
+    port: path
+  transport: in_process
+  description: The entry point passes the path result to the reporter.
+- id: F_PROBE
+  from:
+    module: search
+    port: probe
+  to:
+    module: collision
+    port: query
+  transport: in_process
+  description: Search calls the public collision interface; this flow may repeat.
+- id: F_VERDICT
+  from:
+    module: collision
+    port: decision
+  to:
+    module: search
+    port: verdict
+  transport: in_process
+  description: Returns a collision verdict; this does not permit collision to import search.
+policies:
+  cross_module_default: deny
+  deny_precedence: true
+  unowned_source: error
+  unknown_static: unverified
+  dependencies:
+  - id: R_APP_DATA
+    from: app
+    to: data
+    decision: allow
+    access: public_modules
+    reason: The entry point reads the scene.
+  - id: R_APP_SEARCH
+    from: app
+    to: search
+    decision: allow
+    access: public_modules
+    reason: The entry point calls the exported planning implementation.
+  - id: R_APP_REPORTER
+    from: app
+    to: reporter
+    decision: allow
+    access: public_modules
+    reason: The entry point reports the result.
+  - id: R_APP_CONTRACTS
+    from: app
+    to: contracts
+    decision: allow
+    access: public_modules
+    reason: The entry point uses domain definitions.
+  - id: R_DATA_CONTRACTS
+    from: data
+    to: contracts
+    decision: allow
+    access: public_modules
+    reason: Input uses domain definitions.
+  - id: R_SEARCH_CONTRACTS
+    from: search
+    to: contracts
+    decision: allow
+    access: public_modules
+    reason: Search uses domain definitions.
+  - id: R_SEARCH_COLLISION
+    from: search
+    to: collision
+    decision: allow
+    access: public_modules
+    reason: Search may call only the public collision module.
+  - id: R_COLLISION_CONTRACTS
+    from: collision
+    to: contracts
+    decision: allow
+    access: public_modules
+    reason: Collision checks use domain definitions.
+  - id: R_REPORTER_CONTRACTS
+    from: reporter
+    to: contracts
+    decision: allow
+    access: public_modules
+    reason: Reporter uses domain definitions.
+  - id: R_NO_REPORTER_COLLISION
+    from: reporter
+    to: collision
+    decision: deny
+    access: any
+    reason: Reporter must not access collision internals; propose an architecture change first if needed.
+checks:
+- id: T_NORMAL
+  kind: test
+  selector: tests/test_normal.py
+  modules:
+  - data
+  - search
+  - collision
+  - reporter
+  required: true
+- id: T_BAD_INPUT
+  kind: test
+  selector: tests/test_bad_input.py
+  modules:
+  - data
+  required: true
+- id: T_NO_PATH
+  kind: test
+  selector: tests/test_no_path.py
+  modules:
+  - search
+  - reporter
+  required: true
+- id: T_OBSERVE
+  kind: test
+  selector: tests/test_observation.py
+  modules:
+  - app
+  - search
+  - collision
+  required: true
+observability:
+  mode: explicit_boundaries
+  payload_capture: summary
+  max_event_bytes: 16384

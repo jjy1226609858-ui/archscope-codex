@@ -1,0 +1,61 @@
+name: Windows CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-package:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install pinned development dependencies
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-build.txt
+          .\.venv\Scripts\python.exe -m pip install --no-build-isolation --no-deps -e .
+
+      - name: Test Python service and protocol
+        shell: pwsh
+        run: .\.venv\Scripts\python.exe -m pytest -q
+
+      - name: Build browser workbench
+        shell: pwsh
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Audit public source archive
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'ArchScope-source.zip'
+          $extracted = Join-Path $env:RUNNER_TEMP 'ArchScope-source-audit'
+          .\.venv\Scripts\python.exe tools/build_public_source.py $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $extracted
+          .\.venv\Scripts\python.exe tools/audit_release_privacy.py (Join-Path $extracted 'ArchScope')
+
+      - name: Build and validate isolated Windows plugin
+        shell: pwsh
+        run: |
+          $package = Join-Path $env:RUNNER_TEMP 'ArchScope-windows-candidate'
+          $build = Join-Path $env:RUNNER_TEMP 'ArchScope-windows-build'
+          .\tools\build_windows_marketplace.ps1 -OutputRoot $package -BuildRoot $build
+          .\.venv\Scripts\python.exe tools/audit_release_privacy.py $package
+          .\.venv\Scripts\python.exe tools/smoke_portable_run.py (Join-Path $package 'plugins\archscope') (Join-Path $env:RUNNER_TEMP 'ArchScope-smoke-data')

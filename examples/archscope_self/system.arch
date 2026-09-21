@@ -1,0 +1,205 @@
+archspec: '0.1'
+project:
+  id: archscope_self
+  name: ArchScope Python 后端自举草案
+  purpose: 用 ArchScope 自己的静态 Checker 验证核心 Python 包归属与导入边界；不覆盖前端或外部运行时。
+  source_roots:
+  - src
+  languages:
+  - python
+  open_questions:
+  - checking 对 service.registry 的 TYPE_CHECKING 依赖当前仍按静态依赖记录，后续可增加类型专用边语义。
+  - 前端 TypeScript 与插件脚本尚未纳入本草案。
+domains:
+- id: architecture_model
+  name: 架构模型
+  description: 已解析并通过结构与引用检查的架构文档。
+  binding: archscope.model:ArchitectureDocument
+modules:
+- id: core
+  name: 核心配置
+  purpose: 定义版本、仓库资源路径和默认配置发现。
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/archscope/__init__.py
+    - src/archscope/paths.py
+    public_imports:
+    - archscope
+    - archscope.paths
+    entries: []
+- id: model
+  name: 架构模型
+  purpose: 安全解析 .arch 并执行结构和确定性引用语义检查。
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/archscope/model/**/*.py
+    public_imports:
+    - archscope.model
+    entries:
+    - id: load_architecture
+      symbol: archscope.model:load_architecture
+- id: checking
+  name: 源码检查
+  purpose: 静态扫描源码归属、入口和跨模块 Python 导入，不执行目标源码。
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/archscope/checking/**/*.py
+    public_imports:
+    - archscope.checking
+    entries:
+    - id: architecture_checker
+      symbol: archscope.checking:ArchitectureChecker
+- id: service
+  name: 应用服务
+  purpose: 统一 MCP、HTTP 与 CLI 的项目、运行、检查和候选治理逻辑。
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/archscope/service/**/*.py
+    public_imports:
+    - archscope.service
+    - archscope.service.application
+    - archscope.service.registry
+    - archscope.service.workbench
+    - archscope.service.server
+    - archscope.service.install
+    entries:
+    - id: application
+      symbol: archscope.service:ArchScopeApplication
+- id: mcp
+  name: MCP 适配
+  purpose: 将受限应用服务工具暴露为 STDIO MCP，不维护独立业务规则。
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/archscope/mcp/**/*.py
+    public_imports:
+    - archscope.mcp
+    - archscope.mcp.server
+    entries:
+    - id: main
+      symbol: archscope.mcp.server:main
+- id: telemetry
+  name: 运行事件
+  purpose: 写入受限边界摘要事件，不读取业务内部状态。
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/archscope/telemetry/**/*.py
+    public_imports:
+    - archscope.telemetry
+    entries:
+    - id: event_writer
+      symbol: archscope.telemetry:RuntimeEventWriter
+- id: cli
+  name: 命令行适配
+  purpose: 提供独立本地和 CI 入口，复用应用服务与模型。
+  kind: leaf
+  ports: []
+  binding:
+    files:
+    - src/archscope/cli.py
+    public_imports:
+    - archscope.cli
+    entries:
+    - id: main
+      symbol: archscope.cli:main
+flows: []
+policies:
+  cross_module_default: deny
+  deny_precedence: true
+  unowned_source: error
+  unknown_static: unverified
+  dependencies:
+  - id: R_MODEL_CORE
+    from: model
+    to: core
+    decision: allow
+    access: public_modules
+    reason: 模型读取默认 Schema 路径。
+  - id: R_CHECK_SERVICE_TYPES
+    from: checking
+    to: service
+    decision: allow
+    access: public_modules
+    reason: Checker 仅在 TYPE_CHECKING 中引用登记项目类型。
+  - id: R_SERVICE_CORE
+    from: service
+    to: core
+    decision: allow
+    access: public_modules
+    reason: 应用服务使用版本与资源路径。
+  - id: R_SERVICE_MODEL
+    from: service
+    to: model
+    decision: allow
+    access: public_modules
+    reason: 应用服务加载统一架构模型。
+  - id: R_SERVICE_CHECKING
+    from: service
+    to: checking
+    decision: allow
+    access: public_modules
+    reason: 应用服务调用独立 Checker。
+  - id: R_MCP_CORE
+    from: mcp
+    to: core
+    decision: allow
+    access: public_modules
+    reason: MCP 适配读取默认登记表路径。
+  - id: R_MCP_SERVICE
+    from: mcp
+    to: service
+    decision: allow
+    access: public_modules
+    reason: MCP 只调用统一应用服务。
+  - id: R_CLI_CORE
+    from: cli
+    to: core
+    decision: allow
+    access: public_modules
+    reason: CLI 使用版本和默认路径。
+  - id: R_CLI_MODEL
+    from: cli
+    to: model
+    decision: allow
+    access: public_modules
+    reason: CLI 验证命令读取模型。
+  - id: R_CLI_SERVICE
+    from: cli
+    to: service
+    decision: allow
+    access: public_modules
+    reason: CLI 复用应用服务与本地服务入口。
+  - id: R_CLI_MCP
+    from: cli
+    to: mcp
+    decision: allow
+    access: public_modules
+    reason: CLI 的 mcp 子命令启动同一 STDIO 适配入口。
+checks:
+- id: T_BACKEND
+  kind: test
+  selector: tests
+  modules:
+  - core
+  - model
+  - checking
+  - service
+  - mcp
+  - telemetry
+  - cli
+  required: true
+observability:
+  mode: explicit_boundaries
+  payload_capture: summary
+  max_event_bytes: 16384

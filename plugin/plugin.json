@@ -1,0 +1,29 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "archscope",
+  "version": "0.11.7",
+  "description": "Architecture-first development with evidence-bound runs, checks, repair tasks, and a local workbench.",
+  "skills": "./skills/",
+  "author": {
+    "name": "ArchScope contributors"
+  },
+  "keywords": ["architecture", "codex", "mcp", "software-design"],
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "ArchScope Architecture Workbench",
+        "shortDescription": "Explore architecture, runtime evidence, and scoped repair tasks.",
+        "longDescription": "Read registered .arch architectures, run allowlisted scenarios, check source boundaries, and coordinate human-approved, independently verified repair tasks.",
+        "developerName": "ArchScope contributors",
+        "category": "Developer Tools",
+        "capabilities": ["Read", "Interactive"],
+        "defaultPrompt": [
+          "Check ArchScope health and read the mini_planner architecture.",
+          "Inspect current failure evidence and prepare a scoped repair task for my review."
+        ],
+        "brandColor": "#5B6EF5"
+      }
+    }
+  }
+}

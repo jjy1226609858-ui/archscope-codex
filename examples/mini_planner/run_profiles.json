@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.1",
+  "profiles": [
+    {
+      "id": "demo-normal",
+      "label": "Normal plan",
+      "module": "demo.main",
+      "scenario": "scenarios/normal.json"
+    },
+    {
+      "id": "demo-bad-input",
+      "label": "Invalid input",
+      "module": "demo.main",
+      "scenario": "scenarios/bad_input.json"
+    },
+    {
+      "id": "demo-search-error",
+      "label": "Search error",
+      "module": "demo.main",
+      "scenario": "scenarios/search_error.json"
+    },
+    {
+      "id": "demo-slow",
+      "label": "Slow run (cancel)",
+      "module": "demo.main",
+      "scenario": "scenarios/slow.json"
+    }
+  ]
+}

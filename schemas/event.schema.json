@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archscope:event:0.1",
+  "title": "ArchScope event envelope v0.1 — Draft structural schema",
+  "description": "验证输入信封。各事件 payload 及实体归属需额外校验，服务端 ingest_seq 不能由客户端提供。",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_type": {
+      "enum": [
+        "task.started",
+        "task.finished",
+        "source.changed",
+        "agent.reported",
+        "check.started",
+        "check.finished",
+        "test.finished",
+        "run.started",
+        "module.started",
+        "port.observed",
+        "flow.transferred",
+        "module.finished",
+        "module.failed",
+        "run.finished",
+        "observation.lost",
+        "events.dropped",
+        "snapshot.stale"
+      ]
+    },
+    "stream": {
+      "enum": [
+        "development",
+        "validation",
+        "runtime",
+        "system"
+      ]
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "arch_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "producer": {
+      "enum": [
+        "cli",
+        "hook",
+        "checker",
+        "test_runner",
+        "runtime_sdk",
+        "collector",
+        "agent_report"
+      ]
+    },
+    "producer_seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "task_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "module_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "flow_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "span_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "parent_span_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "stream",
+    "project_id",
+    "arch_revision",
+    "code_revision",
+    "occurred_at",
+    "producer",
+    "producer_seq",
+    "task_id",
+    "run_id",
+    "module_id",
+    "flow_id",
+    "span_id",
+    "parent_span_id",
+    "payload"
+  ],
+  "additionalProperties": false
+}

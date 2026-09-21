@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "archscope": {
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${PLUGIN_ROOT}/scripts/start_mcp.ps1"
+      ]
+    }
+  }
+}
+

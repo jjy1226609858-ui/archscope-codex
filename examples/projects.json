@@ -1,0 +1,20 @@
+{
+  "projects": [
+    {
+      "project_id": "mini_planner",
+      "label": "mini_planner 架构草案",
+      "root": "mini_planner",
+      "arch": "system.arch",
+      "control": ".archscope",
+      "profiles": "run_profiles.json"
+    },
+    {
+      "project_id": "archscope_self",
+      "label": "ArchScope Python 后端自举草案",
+      "root": "..",
+      "arch": "examples/archscope_self/system.arch",
+      "control": ".archscope/self",
+      "profiles": "examples/archscope_self/run_profiles.json"
+    }
+  ]
+}

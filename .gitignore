@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+web/node_modules/
+examples/**/.archscope/
+.archscope/
+.env
+.env.*
+!.env.example
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.pem
+*.key
+*.p12
+*.pfx
+*.spec
+build/
+runtime/
+plugin/resources/
+plugin/runtime/
+
+# The frontend build is generated; release packaging builds it from source.
+web/dist/

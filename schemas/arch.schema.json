@@ -1,0 +1,501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archscope:archspec:0.1",
+  "title": "ArchScope .arch v0.1 — Draft structural schema",
+  "description": "仅校验结构；引用、源码归属、权限与数据流语义需独立校验。",
+  "type": "object",
+  "properties": {
+    "archspec": {
+      "const": "0.1"
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_roots": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "python"
+            ]
+          },
+          "minItems": 1
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "purpose",
+        "source_roots",
+        "languages",
+        "open_questions"
+      ],
+      "additionalProperties": false
+    },
+    "domains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/domain"
+      },
+      "minItems": 1
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/module"
+      },
+      "minItems": 1
+    },
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/flow"
+      },
+      "minItems": 0
+    },
+    "policies": {
+      "type": "object",
+      "properties": {
+        "cross_module_default": {
+          "const": "deny"
+        },
+        "deny_precedence": {
+          "const": true
+        },
+        "unowned_source": {
+          "const": "error"
+        },
+        "unknown_static": {
+          "const": "unverified"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "cross_module_default",
+        "deny_precedence",
+        "unowned_source",
+        "unknown_static",
+        "dependencies"
+      ],
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      },
+      "minItems": 0
+    },
+    "observability": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "const": "explicit_boundaries"
+        },
+        "payload_capture": {
+          "const": "summary"
+        },
+        "max_event_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 1048576
+        }
+      },
+      "required": [
+        "mode",
+        "payload_capture",
+        "max_event_bytes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "archspec",
+    "project",
+    "domains",
+    "modules",
+    "flows",
+    "policies",
+    "checks",
+    "observability"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "endpoint": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/id"
+        },
+        "port": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "module",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "port": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out"
+          ]
+        },
+        "domain": {
+          "$ref": "#/$defs/id"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "delegate": {
+          "$ref": "#/$defs/endpoint"
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "domain"
+      ],
+      "additionalProperties": false
+    },
+    "binding": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "public_imports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "symbol": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "symbol"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "files",
+        "public_imports",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "module": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "leaf",
+            "composite"
+          ]
+        },
+        "parent": {
+          "$ref": "#/$defs/id"
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/port"
+          },
+          "minItems": 0
+        },
+        "binding": {
+          "$ref": "#/$defs/binding"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "purpose",
+        "kind",
+        "ports"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "leaf"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "binding"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "composite"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "binding"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "domain": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "binding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validator": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "dependency": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "from": {
+          "$ref": "#/$defs/id"
+        },
+        "to": {
+          "$ref": "#/$defs/id"
+        },
+        "decision": {
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        },
+        "access": {
+          "enum": [
+            "public_modules",
+            "any"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to",
+        "decision",
+        "access",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "allow"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "access": {
+                "const": "public_modules"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "deny"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "access": {
+                "const": "any"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "flow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "from": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "to": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "transport": {
+          "enum": [
+            "in_process"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to",
+        "transport",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "test"
+        },
+        "selector": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1
+        },
+        "required": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "selector",
+        "modules",
+        "required"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

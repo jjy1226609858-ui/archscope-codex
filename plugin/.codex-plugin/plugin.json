@@ -1,0 +1,23 @@
+{
+  "name": "archscope",
+  "version": "0.11.7",
+  "description": "Visualize registered software architecture and inspect module boundaries from Codex.",
+  "author": {
+    "name": "ArchScope contributors"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ArchScope Architecture Workbench",
+    "shortDescription": "Explore .arch modules, interfaces, and runtime evidence.",
+    "longDescription": "Read registered .arch architectures in Codex, run allowlisted scenarios, check source boundaries, and coordinate human-approved repair tasks with independent verification.",
+    "developerName": "ArchScope contributors",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Interactive"],
+    "defaultPrompt": [
+      "Check ArchScope health and read the mini_planner architecture.",
+      "Check mini_planner source boundaries and open the workbench to inspect diagnostics."
+    ],
+    "brandColor": "#5B6EF5"
+  }
+}

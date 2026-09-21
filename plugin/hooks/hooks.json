@@ -1,0 +1,59 @@
+{
+  "description": "Optional ArchScope lifecycle coverage. Hooks record metadata only and never auto-approve architecture or task scope.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/archscope_hook.py\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/archscope_hook.ps1\"",
+            "timeout": 5,
+            "statusMessage": "Loading ArchScope task identity",
+            "additionalContextLimit": 700
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/archscope_hook.py\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/archscope_hook.ps1\"",
+            "timeout": 5,
+            "statusMessage": "Recording ArchScope coverage"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/archscope_hook.py\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/archscope_hook.ps1\"",
+            "timeout": 5,
+            "statusMessage": "Saving ArchScope lifecycle state"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/archscope_hook.py\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/archscope_hook.ps1\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
