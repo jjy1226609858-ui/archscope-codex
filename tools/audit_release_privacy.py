@@ -36,12 +36,18 @@ def scan_tree(root: Path, deny: list[str]) -> tuple[int, int]:
     if not root.is_dir() or is_link_or_junction(root):
         raise ValueError(f"Release directory does not exist or is linked: {root}")
     username = os.environ.get("USERNAME") or Path.home().name
-    markers = {username, str(Path.home()), str(Path.home()).replace("\\", "/"), *deny}
+    # A bare account name can occur naturally inside a third-party compiled
+    # extension. Treat it as an identity marker only in UTF-8 text. Full home
+    # paths and explicit deny markers remain forbidden even in binary files.
+    markers = {str(Path.home()), str(Path.home()).replace("\\", "/"), *deny}
     encoded = {
         marker.encode(encoding)
         for marker in markers if marker
         for encoding in ("utf-8", "utf-16-le")
     }
+    username_encoded = {
+        username.encode(encoding) for encoding in ("utf-8", "utf-16-le")
+    } if username else set()
     count = total = 0
     for path in root.rglob("*"):
         relative = path.relative_to(root)
@@ -59,6 +65,14 @@ def scan_tree(root: Path, deny: list[str]) -> tuple[int, int]:
         for marker in encoded:
             if marker.lower() in lower:
                 raise ValueError(f"Local identity or path marker in release file: {relative}")
+        if b"\x00" not in data:
+            try:
+                data.decode("utf-8")
+            except UnicodeDecodeError:
+                pass
+            else:
+                if any(marker.lower() in lower for marker in username_encoded):
+                    raise ValueError(f"Local identity marker in release text file: {relative}")
         if any(marker in data for marker in PRIVATE_KEY_MARKERS):
             raise ValueError(f"Private key marker in release file: {relative}")
         count += 1

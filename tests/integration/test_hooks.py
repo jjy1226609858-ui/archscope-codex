@@ -19,13 +19,15 @@ HOOK_INPUT = {
 
 
 def run_hook(command: list[str], data_root: Path, event: object) -> subprocess.CompletedProcess[str]:
+    # Windows PowerShell cold starts can exceed 10 seconds on a busy hosted CI
+    # runner; keep the hook assertions unchanged while bounding that startup.
     return subprocess.run(
         command,
         input=json.dumps(event),
         text=True,
         capture_output=True,
         env={**os.environ, "PLUGIN_DATA": str(data_root)},
-        timeout=10,
+        timeout=30 if command[0].lower() == "powershell.exe" else 10,
         check=False,
     )
 

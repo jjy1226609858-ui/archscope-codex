@@ -62,6 +62,26 @@ def test_binary_source_is_rejected(tmp_path: Path) -> None:
         audit_file(tmp_path, path, None)
 
 
+def test_release_privacy_ignores_bare_runner_name_only_in_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    username = "runner" + "admin"
+    monkeypatch.setenv("USERNAME", username)
+    binary = tmp_path / "extension.pyd"
+    binary.write_bytes(b"\x00" + username.encode() + b"\x00")
+    assert scan_tree(tmp_path, []) == (1, len(binary.read_bytes()))
+
+    text_file = tmp_path / "notes.txt"
+    text_file.write_text(username, encoding="utf-8")
+    with pytest.raises(ValueError, match="identity marker"):
+        scan_tree(tmp_path, [])
+
+
+def test_release_privacy_still_rejects_home_path_in_binary(tmp_path: Path) -> None:
+    binary = tmp_path / "extension.pyd"
+    binary.write_bytes(b"\x00" + str(Path.home()).encode("utf-8") + b"\x00")
+    with pytest.raises(ValueError, match="identity or path marker"):
+        scan_tree(tmp_path, [])
+
+
 def test_public_source_rejects_resolved_path_outside_root(tmp_path: Path) -> None:
     root = tmp_path / "source"
     root.mkdir()
@@ -152,6 +172,8 @@ def test_published_release_smoke_downloads_public_assets_without_credentials() -
     assert "contents: write" not in str(job)
     assert "jjy1226609858-ui/archscope-codex" in job["if"]
     steps = job["steps"]
+    checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout["with"]["persist-credentials"] == "false"
     resolve = next(step for step in steps if step.get("name") == "Resolve newest published release")
     download = next(step for step in steps if step.get("name") == "Download public assets without credentials")
     verify = next(step for step in steps if step.get("name") == "Verify downloaded hashes and package layout")
