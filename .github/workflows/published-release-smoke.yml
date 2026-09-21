@@ -1,0 +1,94 @@
+name: Published Windows Release Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-download:
+    if: github.repository == 'jjy1226609858-ui/archscope-codex' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Resolve newest published release
+        id: release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releases = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=1" | ConvertFrom-Json
+          if (@($releases).Count -ne 1 -or $releases[0].draft) { throw 'No published release to verify' }
+          $release = @($releases)[0]
+          if ($release.tag_name -notmatch '^v\d+\.\d+\.\d+$') { throw "Unexpected release tag: $($release.tag_name)" }
+          $expected = @("ArchScope-$($release.tag_name)-windows-x64.zip", "ArchScope-$($release.tag_name)-source.zip", 'SHA256SUMS.txt')
+          $actual = @($release.assets | ForEach-Object name | Sort-Object)
+          if (@(Compare-Object ($expected | Sort-Object) $actual).Count) { throw "Unexpected release assets: $($actual -join ', ')" }
+          $metadata = Join-Path $env:RUNNER_TEMP 'archscope-release-metadata.json'
+          $release | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $metadata -Encoding UTF8
+          "tag=$($release.tag_name)" >> $env:GITHUB_OUTPUT
+
+      - name: Download public assets without credentials
+        shell: pwsh
+        run: |
+          $release = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'archscope-release-metadata.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          $download = Join-Path $env:RUNNER_TEMP 'archscope-public-download'
+          [IO.Directory]::CreateDirectory($download) | Out-Null
+          foreach ($asset in $release.assets) {
+            $expectedUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$($release.tag_name)/$($asset.name)"
+            if ($asset.browser_download_url -ne $expectedUrl) { throw "Unexpected asset URL: $($asset.name)" }
+            & curl.exe --fail --location --retry 3 --silent --show-error --output (Join-Path $download $asset.name) $expectedUrl
+            if ($LASTEXITCODE -ne 0) { throw "Public asset download failed: $($asset.name)" }
+          }
+
+      - name: Verify downloaded hashes and package layout
+        shell: pwsh
+        run: |
+          $release = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'archscope-release-metadata.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          $download = Join-Path $env:RUNNER_TEMP 'archscope-public-download'
+          foreach ($asset in $release.assets) {
+            if ($asset.digest -notmatch '^sha256:([0-9a-f]{64})$') { throw "Missing GitHub asset digest: $($asset.name)" }
+            $actual = (Get-FileHash -LiteralPath (Join-Path $download $asset.name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $Matches[1]) { throw "GitHub asset digest mismatch: $($asset.name)" }
+          }
+          $lines = @(Get-Content -LiteralPath (Join-Path $download 'SHA256SUMS.txt') -Encoding UTF8)
+          if ($lines.Count -ne 2) { throw 'Expected two ZIP hashes' }
+          foreach ($line in $lines) {
+            if ($line -notmatch '^([0-9a-f]{64})  (ArchScope-v[0-9]+\.[0-9]+\.[0-9]+-(?:windows-x64|source)\.zip)$') {
+              throw "Invalid checksum entry: $line"
+            }
+            $actual = (Get-FileHash -LiteralPath (Join-Path $download $Matches[2]) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $Matches[1]) { throw "Checksum file mismatch: $($Matches[2])" }
+          }
+          $windows = Join-Path $env:RUNNER_TEMP 'archscope-public-windows'
+          $source = Join-Path $env:RUNNER_TEMP 'archscope-public-source'
+          Expand-Archive -LiteralPath (Join-Path $download "ArchScope-$($release.tag_name)-windows-x64.zip") -DestinationPath $windows
+          Expand-Archive -LiteralPath (Join-Path $download "ArchScope-$($release.tag_name)-source.zip") -DestinationPath $source
+          $marketplace = Join-Path $windows '.agents\plugins\marketplace.json'
+          $plugin = Join-Path $windows 'plugins\archscope'
+          if (-not (Test-Path -LiteralPath $marketplace) -or -not (Test-Path -LiteralPath (Join-Path $plugin 'runtime\archscope.exe'))) {
+            throw 'Downloaded ZIP lacks marketplace or runtime executable'
+          }
+          $manifest = Get-Content -LiteralPath (Join-Path $plugin 'plugin.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ("v$($manifest.version)" -ne $release.tag_name) { throw 'Downloaded package version does not match release tag' }
+
+      - name: Audit and run downloaded plugin
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'archscope-public-source\ArchScope'
+          $plugin = Join-Path $env:RUNNER_TEMP 'archscope-public-windows\plugins\archscope'
+          python (Join-Path $source 'tools\audit_release_privacy.py') (Join-Path $env:RUNNER_TEMP 'archscope-public-windows')
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded package privacy audit failed' }
+          python -m pip install -r (Join-Path $source 'requirements.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Smoke dependencies failed to install' }
+          python (Join-Path $source 'tools\smoke_portable_run.py') $plugin (Join-Path $env:RUNNER_TEMP 'archscope-public-run-data')
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded package normal run failed' }
+          python (Join-Path $source 'tools\smoke_portable_task.py') $plugin (Join-Path $env:RUNNER_TEMP 'archscope-public-task-data')
+          if ($LASTEXITCODE -ne 0) { throw 'Downloaded package isolated repair failed' }

@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     ".gitignore",
     ".github/workflows/windows-ci.yml",
+    ".github/workflows/published-release-smoke.yml",
     "CONTRIBUTING.md",
     "INSTALL.md",
     "INSTALL.zh-CN.md",

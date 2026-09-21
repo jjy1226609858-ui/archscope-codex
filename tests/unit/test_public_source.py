@@ -140,3 +140,29 @@ def test_public_windows_ci_gates_release_on_verified_package() -> None:
     assert "gh release create" in create["run"]
     assert "--prerelease" in create["run"]
     assert "git ls-remote --tags" in create["run"]
+
+
+def test_published_release_smoke_downloads_public_assets_without_credentials() -> None:
+    path = ".github/workflows/published-release-smoke.yml"
+    assert path in FILES
+    workflow = yaml.load((ROOT / path).read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    assert set(workflow["on"]) == {"push", "workflow_dispatch"}
+    assert workflow["permissions"] == {"contents": "read"}
+    job = workflow["jobs"]["verify-public-download"]
+    assert "contents: write" not in str(job)
+    assert "jjy1226609858-ui/archscope-codex" in job["if"]
+    steps = job["steps"]
+    resolve = next(step for step in steps if step.get("name") == "Resolve newest published release")
+    download = next(step for step in steps if step.get("name") == "Download public assets without credentials")
+    verify = next(step for step in steps if step.get("name") == "Verify downloaded hashes and package layout")
+    run = next(step for step in steps if step.get("name") == "Audit and run downloaded plugin")
+    assert "GH_TOKEN" in resolve["env"]
+    assert "GH_TOKEN" not in download.get("env", {})
+    assert "curl.exe --fail --location" in download["run"]
+    assert "Get-FileHash" in verify["run"]
+    assert "SHA256SUMS.txt" in verify["run"]
+    assert "marketplace.json" in verify["run"]
+    assert "audit_release_privacy.py" in run["run"]
+    assert "smoke_portable_run.py" in run["run"]
+    assert "smoke_portable_task.py" in run["run"]
+    assert steps.index(resolve) < steps.index(download) < steps.index(verify) < steps.index(run)
