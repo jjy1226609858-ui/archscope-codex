@@ -4,7 +4,7 @@ ArchScope 0.11.7 是 Windows x64 早期版本。插件服务已打包，打开�
 
 [English installation guide](INSTALL.md) · [功能与限制](README.zh-CN.md)
 
-1. 从发行页下载 Windows marketplace ZIP，解压到准备长期保留的目录。确认目录中有 `.agents/plugins/marketplace.json` 和 `plugins/archscope/`，不要运行来源不明的程序。
+1. 正式 GitHub Release 可用时，从发行页下载 Windows marketplace ZIP。在此之前，登录 GitHub，打开 **Actions → Windows CI → 最新成功的 `main` 运行 → Artifacts → `ArchScope-v0.11.7-windows-x64`** 下载；Actions 产物 30 天后过期。解压到准备长期保留的目录，确认有 `.agents/plugins/marketplace.json` 和 `plugins/archscope/`，不要运行来源不明的程序。
 2. 在 PowerShell 中把**解压目录**登记为插件来源，并安装：
 
    ```powershell

@@ -6,7 +6,7 @@ ArchScope 0.11.7 is an early Windows x64 release. The plugin service is bundled;
 
 ## Install the prebuilt plugin
 
-1. Download the Windows marketplace ZIP from the release, extract it to a directory you intend to keep, and check that the extracted directory contains `.agents/plugins/marketplace.json` and `plugins/archscope/`. Do not run an executable from a source you do not trust.
+1. Download the Windows marketplace ZIP from a GitHub Release when one is available. Until then, sign in to GitHub and open **Actions → Windows CI → latest successful `main` run → Artifacts → `ArchScope-v0.11.7-windows-x64`**. Actions artifacts expire after 30 days. Extract the ZIP to a directory you intend to keep, and check that the extracted directory contains `.agents/plugins/marketplace.json` and `plugins/archscope/`. Do not run an executable from a source you do not trust.
 2. In PowerShell, register that **extracted directory** and install the plugin:
 
    ```powershell
