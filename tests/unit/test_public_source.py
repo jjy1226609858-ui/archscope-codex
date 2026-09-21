@@ -113,3 +113,6 @@ def test_public_windows_ci_is_unprivileged_and_allowlisted() -> None:
     assert upload["with"]["path"] == "${{ runner.temp }}/ArchScope-windows-candidate/"
     assert upload["with"]["include-hidden-files"] == "true"
     assert upload["with"]["if-no-files-found"] == "error"
+    repair = next(step for step in steps if step.get("name", "").startswith("Verify isolated repair regression"))
+    assert "tools/smoke_portable_task.py" in repair["run"]
+    assert steps.index(repair) < steps.index(upload)

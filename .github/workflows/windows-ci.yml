@@ -60,6 +60,12 @@ jobs:
           .\.venv\Scripts\python.exe tools/audit_release_privacy.py $package
           .\.venv\Scripts\python.exe tools/smoke_portable_run.py (Join-Path $package 'plugins\archscope') (Join-Path $env:RUNNER_TEMP 'ArchScope-smoke-data')
 
+      - name: Verify isolated repair regression and recovery (fixture approval)
+        shell: pwsh
+        run: |
+          $package = Join-Path $env:RUNNER_TEMP 'ArchScope-windows-candidate'
+          .\.venv\Scripts\python.exe tools/smoke_portable_task.py (Join-Path $package 'plugins\archscope') (Join-Path $env:RUNNER_TEMP 'ArchScope-task-smoke-data')
+
       - name: Read verified package version
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         id: package_version
